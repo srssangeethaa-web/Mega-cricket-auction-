@@ -1,1 +1,173 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mega Cricket Auction</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#071426;color:white}
+header{text-align:center;padding:20px;background:#102b48}
+h1{color:#ffd166;margin:0}
+main{max-width:700px;margin:auto;padding:15px}
+.card{background:#12304d;padding:18px;border-radius:15px;margin-bottom:15px}
+h2{color:#ffd166;margin-top:0}
+input,select,button{padding:12px;border-radius:8px;border:0;font-size:16px;margin:4px 0}
+input,select{width:100%;background:#eaf3ff}
+button{background:#ffd166;color:#102033;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.4}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1}
+.price{font-size:32px;color:#ffd166;font-weight:bold}
+.muted{color:#b9cce0}
+.player{padding:12px;background:#1b4265;border-radius:9px;margin:7px 0}
+</style>
+</head>
+<body>
+<header>
+<h1>🏏 MEGA CRICKET AUCTION</h1>
+<p>IPL Stars + Fantasy Players</p>
+</header>
+<main>
+<section class="card" id="setup">
+<h2>🎮 Create Your Auction</h2>
+<label>Manager name</label>
+<input id="manager" placeholder="Your name">
+<label>Team name</label>
+<input id="team" placeholder="Your team">
+<label>Starting purse (crore)</label>
+<select id="purse">
+<option value="100">₹100 Crore</option>
+<option value="200">₹200 Crore</option>
+<option value="500">₹500 Crore</option>
+</select>
+<button onclick="startGame()">Start Auction</button>
+<p class="muted">Local demo: this auction currently runs on this device only.</p>
+</section>
+
+<section class="card" id="auction" hidden>
+<h2>🔨 Player Auction</h2>
+<div class="muted" id="number"></div>
+<h2 id="playerName">Player</h2>
+<p id="details"></p>
+<p>Base price</p>
+<div id="base" class="price"></div>
+<p>Current bid</p>
+<div id="bid" class="price"></div>
+<p id="highest">No bids yet</p>
+<div class="row">
+<button onclick="placeBid()">💰 Bid + ₹0.2 Cr</button>
+<button onclick="finishPlayer()">🔨 Sold</button>
+</div>
+<button onclick="unsold()">Skip / Unsold</button>
+<div id="message" class="muted"></div>
+</section>
+
+<section class="card" id="custom" hidden>
+<h2>✨ Add a Custom Player</h2>
+<input id="customName" placeholder="Custom player name">
+<select id="customRole">
+<option>Batter</option><option>Bowler</option>
+<option>All-rounder</option><option>Wicketkeeper</option>
+</select>
+<input id="customBase" type="number" min=".2" step=".2" value=".5" placeholder="Base price in crore">
+<button onclick="addCustom()">Add Player</button>
+</section>
+
+<section class="card" id="squad" hidden>
+<h2>🏆 Your Team</h2>
+<p>Manager: <span id="managerView"></span></p>
+<p>Team: <span id="teamView"></span></p>
+<p>Remaining purse: <strong id="remaining"></strong></p>
+<div id="playersBought"></div>
+<button onclick="nextPlayer()">Next Player ➜</button>
+<button onclick="resetGame()">Restart Auction</button>
+</section>
+</main>
+
+<script>
+const stars=[
+{name:"Virat Kohli",role:"Batter",country:"India",base:2},
+{name:"Rohit Sharma",role:"Batter",country:"India",base:2},
+{name:"Jasprit Bumrah",role:"Bowler",country:"India",base:2},
+{name:"Hardik Pandya",role:"All-rounder",country:"India",base:1.5},
+{name:"Rishabh Pant",role:"Wicketkeeper",country:"India",base:2},
+{name:"MS Dhoni",role:"Wicketkeeper",country:"India",base:1},
+{name:"Suryakumar Yadav",role:"Batter",country:"India",base:2},
+{name:"Ravindra Jadeja",role:"All-rounder",country:"India",base:1.5},
+{name:"Shubman Gill",role:"Batter",country:"India",base:2},
+{name:"Rashid Khan",role:"Bowler",country:"Afghanistan",base:2},
+{name:"Jos Buttler",role:"Wicketkeeper",country:"England",base:2},
+{name:"Glenn Maxwell",role:"All-rounder",country:"Australia",base:1.5}
+];
+let pool=[],index=0,budget=100,bid=0,highest="",bought=[],manager="",team="";
+function startGame(){
+manager=document.getElementById("manager").value.trim()||"Manager";
+team=document.getElementById("team").value.trim()||"My Team";
+budget=Number(document.getElementById("purse").value);
+pool=stars.map(p=>({...p}));index=0;bought=[];
+document.getElementById("setup").hidden=true;
+document.getElementById("auction").hidden=false;
+document.getElementById("custom").hidden=false;
+document.getElementById("squad").hidden=false;
+document.getElementById("managerView").textContent=manager;
+document.getElementById("teamView").textContent=team;
+render();
+}
+function render(){
+if(index>=pool.length){
+document.getElementById("playerName").textContent="Auction Complete!";
+document.getElementById("details").textContent="All players have been processed.";
+document.getElementById("base").textContent="—";
+document.getElementById("bid").textContent="—";
+document.getElementById("highest").textContent="🏆 Auction finished!";
+document.getElementById("number").textContent="";
+document.getElementById("message").textContent="Review your squad below.";
+return;
+}
+let p=pool[index];bid=0;highest="";
+document.getElementById("number").textContent="Player "+(index+1)+" of "+pool.length;
+document.getElementById("playerName").textContent=p.name;
+document.getElementById("details").textContent=p.role+" · "+p.country;
+document.getElementById("base").textContent="₹"+p.base+" Cr";
+document.getElementById("bid").textContent="₹"+p.base+" Cr";
+document.getElementById("highest").textContent="No bids yet";
+document.getElementById("message").textContent="";
+}
+function placeBid(){
+if(index>=pool.length)return;
+let p=pool[index],next=bid===0?p.base:Math.round((bid+.2)*10)/10;
+if(next>budget){document.getElementById("message").textContent="Not enough budget!";return}
+bid=next;highest=team;
+document.getElementById("bid").textContent="₹"+bid.toFixed(1)+" Cr";
+document.getElementById("highest").textContent="Highest bidder: "+highest;
+}
+function finishPlayer(){
+if(index>=pool.length||bid===0){document.getElementById("message").textContent="Place a bid before marking sold.";return}
+budget=Math.round((budget-bid)*10)/10;
+bought.push({...pool[index],price:bid});
+updateSquad();document.getElementById("message").textContent=pool[index].name+" sold to "+team+"!";
+}
+function unsold(){
+if(index>=pool.length)return;
+document.getElementById("message").textContent=pool[index].name+" went unsold.";
+}
+function nextPlayer(){if(index<pool.length)index++;render()}
+function addCustom(){
+let name=document.getElementById("customName").value.trim();
+let base=Number(document.getElementById("customBase").value);
+if(!name||!Number.isFinite(base)||base<.2){alert("Enter a player name and a base price of at least ₹0.2 crore.");return}
+pool.push({name,role:document.getElementById("customRole").value,country:"Custom",base});
+document.getElementById("customName").value="";
+alert("Custom player added!");
+render();
+}
+function updateSquad(){
+document.getElementById("remaining").textContent="₹"+budget.toFixed(1)+" Cr";
+document.getElementById("playersBought").innerHTML=bought.map(p=>"<div class='player'>🏏 "+p.name+" — ₹"+p.price.toFixed(1)+" Cr ("+p.role+")</div>").join("")||"<p class='muted'>No players bought yet.</p>";
+}
+function resetGame(){location.reload()}
+</script>
+</body>
+</html>
